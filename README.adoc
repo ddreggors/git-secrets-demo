@@ -1,0 +1,186 @@
+= Using git secrets
+
+This is a small demo on how to use git secrets. This demo is not meant to be a full tutorial or documentation of all feature, it's meant to give an idea of how usefule git secrets can be.
+
+The git-secret command is a bash tool to store your private data inside a git repo. How’s that? Basically, it just encrypts, using gpg, the tracked files with the public keys of all the users that you trust. So everyone of them can decrypt these files using only their personal secret key. Why deal with all this private-public keys stuff? Well, to make it easier for everyone to manage access rights. There are no passwords that change. When someone is out - just delete their public key, reencrypt the files, and they won’t be able to decrypt secrets anymore.
+
+**Prerequisites:**
+
+* git-secret installed and in your path
+* gpg installed
+* gpg keys created
+
+
+== Installing the git-secret plugin
+
+Installation is not really within the scope of this demo, however it would be prudent to offer up where to find that info. So with that in mind...
+
+You can install git-secret an several ways depending on platform/OS and it is well documented over on the https://git-secret.io/installation[installation page] at the https://git-secret.io[git-secret site].
+
+
+== GPG keys
+
+As mentioned above we will need gpg keys for this endevor, they will be used to encrypt and decrypt the files we will be hiding.
+
+.simple key generation
+----
+$ gpg --full-generate-key
+gpg (GnuPG) 2.2.27; Copyright (C) 2021 Free Software Foundation, Inc.
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+
+Please select what kind of key you want:
+   (1) RSA and RSA (default)
+   (2) DSA and Elgamal
+   (3) DSA (sign only)
+   (4) RSA (sign only)
+  (14) Existing key from card
+Your selection? 1
+RSA keys may be between 1024 and 4096 bits long.
+What keysize do you want? (3072) 4096
+Requested keysize is 4096 bits
+Please specify how long the key should be valid.
+         0 = key does not expire
+      <n>  = key expires in n days
+      <n>w = key expires in n weeks
+      <n>m = key expires in n months
+      <n>y = key expires in n years
+Key is valid for? (0) 0
+Key does not expire at all
+Is this correct? (y/N) y
+
+GnuPG needs to construct a user ID to identify your key.
+
+Real name: David Dreggors
+Email address: me@work.com
+Comment:
+You selected this USER-ID:
+    "David Dreggors <me@work.com>"
+
+Change (N)ame, (C)omment, (E)mail or (O)kay/(Q)uit? O
+----
+
+== Initializing the repo for git secrets
+
+Initialize the git-secret repository by running `git secret init` command. The `.gitsecret/` folder will be created. Note all the contents of the `.gitsecret/` folder should be checked in, /except/ the random_seed file. In other words, of all the files in `.gitsecret/`, only the random_seed file should be mentioned in your `.gitignore` file. By default, git secret init will add the file `.gitsecret/keys/random_seed` to your `.gitignore` file.
+
+
+=== git-secret init
+
+.initializing your repo
+----
+$ git secret init
+----
+
+
+== Adding people to the get-secret keyring
+
+Add the first user to the git-secret repo keyring by running `git secret tell`.
+
+NOTE: This is the same email address that you used to create the gpg key
+
+=== git-secret tell
+
+----
+$ git secret tell your@gpg.email
+----
+
+== Adding secrets
+
+Now that we have git-secret installed, keys in our gpg keyring, and a repo that has been initialized with users added, we need to add a secret... lets begin having fun!
+
+
+=== git-secret add
+
+.mypasswd file
+----
+PLAN_TEXT_PASS='No$o$ecure!'
+----
+
+For git-secret to know about this file it must first be `added`
+
+.adding a secret file
+----
+$ git secret add mypasswd
+----
+
+This will add the file to the mappings that git secret knows about. It will also add this file to the root level `.gitignore`.
+
+WARNING: This is important to remember! If you do not hide your secret and check in the hidden version you could lose your secret file because the unencrypted version will not get seen to check in to your repo.
+
+== Hiding secrets
+
+Hiding your secrets is the main point of all of our work thus far. Hiding is git-secret speak for encrypting the original file and creating a new encrypted version of that file with the `.secret` suffix added to the file name. This *new* encrypted file can now be checked in and committed to your repo safely.
+
+
+=== git-secret hide
+
+.hiding a secret file
+----
+$ git secret hide -d
+----
+
+NOTE: The trailing `-d` will delete the original file so as not to confuse you, also when revealing you will get prompted to overwrite if the original file is still laying around in the same path. This can lead to more confusion and in some cases loss of data. If the overwrite fails and you end up with an empty file you can `hide` and `git commit` an empty file.
+
+== Revealing secrets
+
+Revealing secrets is done by the `git secret reveal` command or the `git secret cat` command.
+
+The difference between the two methods is that a `git secret reveal` *reveals* (decrypts then files) all secrets, where a `git secret cat` will display the contents of a single file
+
+=== git-secret reveal
+
+.revealing all secrets
+----
+$ git secret reveal
+----
+
+=== git-secret cat
+
+.cat a secret for quick use
+----
+$ git secret cat mypasswd
+----
+
+== More great info
+
+There are other useful commands you can use with `git-secret` and one easy way to learn about these other commands (or to remind yourself) is the `git secret usage` command. Another way would be to *RTFM* (Read the free manuals)
+
+=== git-secret usage
+
+.git-secret usagee
+----
+$ git secret usage
+usage: git secret [--version] [command] [command-options]
+
+options:
+ --version                 - prints the version number
+
+commands:
+see 'git secret [command] -h' for more info about commands and their options
+ add [file.txt]            - adds file to be hidden to the list
+ cat [file.txt]            - decrypts and prints contents of the file
+ changes [file.txt.secret] - indicates if the file changed since last commit
+ clean                     - deletes all encrypted files
+ hide                      - encrypts (or re-encrypts) the files to be hidden
+ init                      - initializes the  git-secret repository
+ killperson [emails]       - deletes a person's public key from the keyring
+ list                      - prints all the added files
+ remove [files]            - removes files from the list of hidden files
+ reveal                    - decrypts all hidden files
+ tell [email]              - imports a person's public key into the keyring
+ usage                     - prints this message
+ whoknows                  - prints list of authorized email addresses
+----
+
+=== Documentation
+
+.Reference Material
+
+ * https://git-secret.io/[Git Secret Homepage]
+ * https://git-secret.io/git-secret-usage[Git Secret Usage]
+ * https://git-secret.io/git-secret-init[Git Secret Init]
+ * https://git-secret.io/git-secret-tell[Git Secret Tell]
+ * https://git-secret.io/git-secret-hide[Git Secret Hide]
+ * https://git-secret.io/git-secret-reveal[Git Secret Reveal]
+ * https://git-secret.io/git-secret-cat[Git Secret Cat]
